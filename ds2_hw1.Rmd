@@ -182,7 +182,7 @@ summary(resamp)
 bwplot(resamp, metric = "RMSE")
 ```
 
-Elastic net (minimizing CV error) performs the best out of the 5 models with regards to all measures of test error, as seen in the graph above and the list of resamples. Based on RMSE, I would conclude that the elastic net model is the best-performing.
+Elastic net (minimizing CV error) performs the best out of the 5 models with regards to all measures of test error, as seen in the graph above and the list of resamples. Based on RMSE, I would conclude that the elastic net model is the best-performing for prediction.
 
 ## Part e)
 
@@ -193,9 +193,10 @@ x = model.matrix(sale_price ~ ., train_df)[,-1] # convert into a binary indicato
 # vector of response
 y = pull(train_df, "sale_price")
 
+set.seed(2025)
 cv.lasso = cv.glmnet(x, y, 
                       alpha = 1, 
-                      lambda = exp(seq(6, -5, length = 100)))
+                      lambda = exp(seq(6, 0, length = 100)))
 
 cv.lasso$lambda.min
 cv.lasso$lambda.1se
@@ -204,4 +205,4 @@ plot(cv.lasso)
 plot_glmnet(cv.lasso$glmnet.fit)
 ```
 
-
+The tuning parameter using `glmnet` is 58.00946, and 403.4288 when the 1SE method is used. The lambda value for the 1SE method is the same for both tests, but slightly different for the minimum method.

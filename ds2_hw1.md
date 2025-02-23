@@ -376,3 +376,53 @@ bwplot(resamp, metric = "RMSE")
 ```
 
 ![](ds2_hw1_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+
+Elastic net (minimizing CV error) performs the best out of the 5 models
+with regards to all measures of test error, as seen in the graph above
+and the list of resamples. Based on RMSE, I would conclude that the
+elastic net model is the best-performing for prediction.
+
+## Part e)
+
+**If R package `caret` was used for the lasso in (a), retrain this model
+using R package `glmnet`, and vice versa. Compare the selected tuning
+parameters between the two software approaches. Should there be
+discrepancies in the chosen parameters, discuss potential reasons for
+these differences.**
+
+``` r
+x = model.matrix(sale_price ~ ., train_df)[,-1] # convert into a binary indicator variable
+# vector of response
+y = pull(train_df, "sale_price")
+
+set.seed(2025)
+cv.lasso = cv.glmnet(x, y, 
+                      alpha = 1, 
+                      lambda = exp(seq(6, 0, length = 100)))
+
+cv.lasso$lambda.min
+```
+
+    ## [1] 58.00946
+
+``` r
+cv.lasso$lambda.1se
+```
+
+    ## [1] 403.4288
+
+``` r
+plot(cv.lasso)
+```
+
+![](ds2_hw1_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+
+``` r
+plot_glmnet(cv.lasso$glmnet.fit)
+```
+
+![](ds2_hw1_files/figure-gfm/unnamed-chunk-8-2.png)<!-- -->
+
+The tuning parameter using `glmnet` is 58.00946, and 403.4288 when the
+1SE method is used. The lambda value for the 1SE method is the same for
+both tests, but slightly different for the minimum method.
