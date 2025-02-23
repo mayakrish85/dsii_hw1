@@ -7,24 +7,94 @@ output: github_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(glmnet)
+library(caret)
+library(tidymodels)
+library(corrplot)
+library(ggplot2)
+library(plotmo)
+library(ggrepel)
 ```
 
-## R Markdown
+Read and prep CSV files.
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
+train_df = read_csv("housing_training.csv") %>% janitor::clean_names()
+test_df = read_csv("housing_test.csv") %>% janitor::clean_names()
+```
+Response variable: `sale_price`
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## Part a)
 
-```{r cars}
-summary(cars)
+**Fit a lasso model on the training data. Report the selected tuning parameter and the test error. When the 1SE rule is applied, how many predictors are included in the model?**
+
+### Minimizing CV error
+
+```{r}
+# Using glmnet
+ctrl1 = trainControl(method = "cv", number = 10)
+
+set.seed(2025)
+lasso.fit =
+  train(sale_price ~ .,
+        data = train_df,
+        method = "glmnet",
+        tuneGrid = expand.grid(alpha = 1, lambda = exp(seq(6, 0, length = 100))),
+        trControl = ctrl1)
+
+plot(lasso.fit, xTrans = log)
+
+lasso.fit$bestTune
+
+# coefficients in the final model
+coef(lasso.fit$finalModel, lasso.fit$bestTune$lambda)
+
+# test error
+predictions = predict(lasso.fit, newdata = test_df)
+mse = mean((predictions - pull(test_df, "sale_price"))^2)
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
+The tuning parameter that minimizes CV error is 65.48481. The MSE associated with this model is 439967917.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+### Minimizing for 1SE
+
+```{r}
+ctrl2 = 
+  trainControl(method = "repeatedcv",
+               number = 10,
+               repeats = 5,
+               selectionFunction = "oneSE")
+
+set.seed(2025)
+
+lasso.fit_1se = 
+  train(sale_price ~ .,
+        data = train_df,
+        method = "glmnet",
+        tuneGrid = expand.grid(alpha = 1, lambda = exp(seq(6, 0, length = 100))),
+        trControl = ctrl2)
+
+# Best lambda for 1SE
+lasso.fit_1se$bestTune
+
+# Getting number of predictors
+coeff = coef(lasso.fit_1se$finalModel, lasso.fit_1se$bestTune$lambda)
+length(which(coeff != 0)) - 1
+
+# MSE
+predictions = predict(lasso.fit_1se, newdata = test_df)
+mse = mean((predictions - pull(test_df, "sale_price"))^2); mse
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Using the 1SE rule, the optimal tuning parameter is 403.4288. The MSE is 420726548. There are 36 (non-zero) predictors in this model.
+
+## Part b)
+
+**Fit an elastic net model on the training data. Report the selected tuning parameters and the test error. Is it possible to apply the 1SE rule to select the tuning parameters for elastic net? If the 1SE rule is applicable, implement it to select the tuning parameters. If not, explain why.**
+
+
+
+

@@ -3,33 +3,173 @@ Data Science II HW 1
 Maya Krishnamoorthy
 2025-02-22
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax
-for authoring HTML, PDF, and MS Word documents. For more details on
-using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that
-includes both content as well as the output of any embedded R code
-chunks within the document. You can embed an R code chunk like this:
+Read and prep CSV files.
 
 ``` r
-summary(cars)
+train_df = read_csv("housing_training.csv") %>% janitor::clean_names()
 ```
 
-    ##      speed           dist       
-    ##  Min.   : 4.0   Min.   :  2.00  
-    ##  1st Qu.:12.0   1st Qu.: 26.00  
-    ##  Median :15.0   Median : 36.00  
-    ##  Mean   :15.4   Mean   : 42.98  
-    ##  3rd Qu.:19.0   3rd Qu.: 56.00  
-    ##  Max.   :25.0   Max.   :120.00
+    ## Rows: 1440 Columns: 26
+    ## ── Column specification ────────────────────────────────────────────────────────
+    ## Delimiter: ","
+    ## chr  (4): Overall_Qual, Kitchen_Qual, Fireplace_Qu, Exter_Qual
+    ## dbl (22): Gr_Liv_Area, First_Flr_SF, Second_Flr_SF, Total_Bsmt_SF, Low_Qual_...
+    ## 
+    ## ℹ Use `spec()` to retrieve the full column specification for this data.
+    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 
-## Including Plots
+``` r
+test_df = read_csv("housing_test.csv") %>% janitor::clean_names()
+```
 
-You can also embed plots, for example:
+    ## Rows: 959 Columns: 26
+    ## ── Column specification ────────────────────────────────────────────────────────
+    ## Delimiter: ","
+    ## chr  (4): Overall_Qual, Kitchen_Qual, Fireplace_Qu, Exter_Qual
+    ## dbl (22): Gr_Liv_Area, First_Flr_SF, Second_Flr_SF, Total_Bsmt_SF, Low_Qual_...
+    ## 
+    ## ℹ Use `spec()` to retrieve the full column specification for this data.
+    ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
 
-![](ds2_hw1_files/figure-gfm/pressure-1.png)<!-- -->
+Response variable: `sale_price`
 
-Note that the `echo = FALSE` parameter was added to the code chunk to
-prevent printing of the R code that generated the plot.
+## Part a)
+
+**Fit a lasso model on the training data. Report the selected tuning
+parameter and the test error. When the 1SE rule is applied, how many
+predictors are included in the model?**
+
+### Minimizing CV error
+
+``` r
+# Using glmnet
+ctrl1 = trainControl(method = "cv", number = 10)
+
+set.seed(2025)
+lasso.fit =
+  train(sale_price ~ .,
+        data = train_df,
+        method = "glmnet",
+        tuneGrid = expand.grid(alpha = 1, lambda = exp(seq(6, 0, length = 100))),
+        trControl = ctrl1)
+
+plot(lasso.fit, xTrans = log)
+```
+
+![](ds2_hw1_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
+
+``` r
+lasso.fit$bestTune
+```
+
+    ##    alpha   lambda
+    ## 70     1 65.48481
+
+``` r
+# coefficients in the final model
+coef(lasso.fit$finalModel, lasso.fit$bestTune$lambda)
+```
+
+    ## 40 x 1 sparse Matrix of class "dgCMatrix"
+    ##                                       s1
+    ## (Intercept)                -4.827229e+06
+    ## gr_liv_area                 6.538426e+01
+    ## first_flr_sf                8.025639e-01
+    ## second_flr_sf               .           
+    ## total_bsmt_sf               3.541790e+01
+    ## low_qual_fin_sf            -4.093893e+01
+    ## wood_deck_sf                1.163406e+01
+    ## open_porch_sf               1.543115e+01
+    ## bsmt_unf_sf                -2.088742e+01
+    ## mas_vnr_area                1.090025e+01
+    ## garage_cars                 4.083736e+03
+    ## garage_area                 8.168146e+00
+    ## year_built                  3.233277e+02
+    ## tot_rms_abv_grd            -3.616290e+03
+    ## full_bath                  -3.840140e+03
+    ## overall_qualAverage        -4.853059e+03
+    ## overall_qualBelow_Average  -1.245648e+04
+    ## overall_qualExcellent       7.549879e+04
+    ## overall_qualFair           -1.075093e+04
+    ## overall_qualGood            1.212071e+04
+    ## overall_qualVery_Excellent  1.357075e+05
+    ## overall_qualVery_Good       3.789087e+04
+    ## kitchen_qualFair           -2.483806e+04
+    ## kitchen_qualGood           -1.720012e+04
+    ## kitchen_qualTypical        -2.531083e+04
+    ## fireplaces                  1.054387e+04
+    ## fireplace_quFair           -7.665787e+03
+    ## fireplace_quGood            .           
+    ## fireplace_quNo_Fireplace    1.438181e+03
+    ## fireplace_quPoor           -5.640226e+03
+    ## fireplace_quTypical        -7.011019e+03
+    ## exter_qualFair             -3.332982e+04
+    ## exter_qualGood             -1.508538e+04
+    ## exter_qualTypical          -1.952240e+04
+    ## lot_frontage                9.963955e+01
+    ## lot_area                    6.042538e-01
+    ## longitude                  -3.293051e+04
+    ## latitude                    5.507513e+04
+    ## misc_val                    8.278839e-01
+    ## year_sold                  -5.601503e+02
+
+``` r
+# test error
+predictions = predict(lasso.fit, newdata = test_df)
+mse = mean((predictions - pull(test_df, "sale_price"))^2)
+```
+
+The tuning parameter that minimizes CV error is 65.48481. The MSE
+associated with this model is 439967917.
+
+### Minimizing for 1SE
+
+``` r
+ctrl2 = 
+  trainControl(method = "repeatedcv",
+               number = 10,
+               repeats = 5,
+               selectionFunction = "oneSE")
+
+set.seed(2025)
+
+lasso.fit_1se = 
+  train(sale_price ~ .,
+        data = train_df,
+        method = "glmnet",
+        tuneGrid = expand.grid(alpha = 1, lambda = exp(seq(6, 0, length = 100))),
+        trControl = ctrl2)
+
+# Best lambda for 1SE
+lasso.fit_1se$bestTune
+```
+
+    ##     alpha   lambda
+    ## 100     1 403.4288
+
+``` r
+# Getting number of predictors
+coeff = coef(lasso.fit_1se$finalModel, lasso.fit_1se$bestTune$lambda)
+length(which(coeff != 0)) - 1
+```
+
+    ## [1] 36
+
+``` r
+# MSE
+predictions = predict(lasso.fit_1se, newdata = test_df)
+mse = mean((predictions - pull(test_df, "sale_price"))^2); mse
+```
+
+    ## [1] 420726548
+
+Using the 1SE rule, the optimal tuning parameter is 403.4288. The MSE is
+420726548. There are 36 (non-zero) predictors in this model.
+
+## Part b)
+
+**Fit an elastic net model on the training data. Report the selected
+tuning parameters and the test error. Is it possible to apply the 1SE
+rule to select the tuning parameters for elastic net? If the 1SE rule is
+applicable, implement it to select the tuning parameters. If not,
+explain why.**
