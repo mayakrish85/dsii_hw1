@@ -34,7 +34,10 @@ Response variable: `sale_price`
 
 ```{r}
 # Using glmnet
-ctrl1 = trainControl(method = "cv", number = 10)
+ctrl1 = trainControl(method = "repeatedcv",
+                     number = 10,
+                     repeats = 5,
+                     selectionFunction = "best")
 
 set.seed(2025)
 lasso.fit =
@@ -57,7 +60,7 @@ mse = mean((predictions - pull(test_df, "sale_price"))^2)
 ```
 
 
-The tuning parameter that minimizes CV error is 65.48481. The MSE associated with this model is 439967917.
+The tuning parameter that minimizes CV error is 61.6339. The MSE associated with this model is 440335429.
 
 ### Minimizing for 1SE
 
@@ -96,6 +99,8 @@ Using the 1SE rule, the optimal tuning parameter is 403.4288. The MSE is 4207265
 **Fit an elastic net model on the training data. Report the selected tuning parameters and the test error. Is it possible to apply the 1SE rule to select the tuning parameters for elastic net? If the 1SE rule is applicable, implement it to select the tuning parameters. If not, explain why.**
 
 ```{r}
+set.seed(2025)
+
 enet.fit <- train(sale_price ~ .,
                   data = train_df,
                   method = "glmnet",
@@ -118,7 +123,7 @@ enet.pred = predict(enet.fit, newdata = test_df)
 mean((enet.pred - pull(test_df, "sale_price"))^2)
 ```
 
-The optimal tuning parameters for the elastic net model are lambda = 316.5799 and alpha = 0.05263158. The test error is 441832112.
+The optimal tuning parameters for the elastic net model are lambda = 580.3529 and alpha = 0.05263158. The test error is 438502352.
 
 ```{r}
 # Trying 1SE method
@@ -136,4 +141,67 @@ enet.pred_1se = predict(enet.fit_1se, newdata = test_df)
 mean((enet.pred_1se - pull(test_df, "sale_price"))^2)
 ```
 Using 1SE, the resulting tuning parameters are alpha = 0 and lambda = 6554.314. The resulting test error is 426591709. Since the test errors are similar for both 1SE and CV methods, we can go ahead and use the 1SE method as well. **CHECK THIS**
+
+## Part c)
+
+**Fit a partial least squares model on the training data and report the test error. How
+many components are included in your model?**
+
+```{r}
+set.seed(2025)
+
+pls_fit = train(sale_price ~ .,
+                data = train_df,
+                method = "pls",
+                tuneGrid = data.frame(ncomp = 1:(ncol(train_df)-1)),
+                trControl = ctrl1,
+                preProcess = c("center", "scale"))
+
+pred.pls = predict(pls_fit, newdata = test_df)
+mean((pred.pls - pull(test_df, "sale_price"))^2)
+ggplot(pls_fit, highlight = TRUE)
+
+```
+
+The final model used 12 components.
+
+## Part d)
+
+**Choose the best model for predicting the response and explain your choice.**
+
+```{r}
+resamp = resamples(list(
+  lasso = lasso.fit,
+  lasso_1SE = lasso.fit_1se,
+  elastic_net = enet.fit,
+  elastic_net_1SE = enet.fit_1se,
+  pls = pls_fit))
+
+summary(resamp)
+
+bwplot(resamp, metric = "RMSE")
+```
+
+Elastic net (minimizing CV error) performs the best out of the 5 models with regards to all measures of test error, as seen in the graph above and the list of resamples. Based on RMSE, I would conclude that the elastic net model is the best-performing.
+
+## Part e)
+
+**If R package `caret` was used for the lasso in (a), retrain this model using R package `glmnet`, and vice versa. Compare the selected tuning parameters between the two software approaches. Should there be discrepancies in the chosen parameters, discuss potential reasons for these differences.**
+
+```{r}
+x = model.matrix(sale_price ~ ., train_df)[,-1] # convert into a binary indicator variable
+# vector of response
+y = pull(train_df, "sale_price")
+
+cv.lasso = cv.glmnet(x, y, 
+                      alpha = 1, 
+                      lambda = exp(seq(6, -5, length = 100)))
+
+cv.lasso$lambda.min
+cv.lasso$lambda.1se
+
+plot(cv.lasso)
+plot_glmnet(cv.lasso$glmnet.fit)
+```
+
 
