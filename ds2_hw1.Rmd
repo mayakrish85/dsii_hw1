@@ -95,6 +95,45 @@ Using the 1SE rule, the optimal tuning parameter is 403.4288. The MSE is 4207265
 
 **Fit an elastic net model on the training data. Report the selected tuning parameters and the test error. Is it possible to apply the 1SE rule to select the tuning parameters for elastic net? If the 1SE rule is applicable, implement it to select the tuning parameters. If not, explain why.**
 
+```{r}
+enet.fit <- train(sale_price ~ .,
+                  data = train_df,
+                  method = "glmnet",
+                  tuneGrid = expand.grid(alpha = seq(0, 1, length = 20), 
+                                         lambda = exp(seq(10, 0, length = 100))),
+                  trControl = ctrl1)
+enet.fit$bestTune
 
+myCol <- rainbow(25)
+myPar <- list(superpose.symbol = list(col = myCol),
+              superpose.line = list(col = myCol))
 
+plot(enet.fit, par.settings = myPar, xTrans = log)
+
+# coefficients in the final model
+coef(enet.fit$finalModel, enet.fit$bestTune$lambda)
+
+# MSE
+enet.pred = predict(enet.fit, newdata = test_df)
+mean((enet.pred - pull(test_df, "sale_price"))^2)
+```
+
+The optimal tuning parameters for the elastic net model are lambda = 316.5799 and alpha = 0.05263158. The test error is 441832112.
+
+```{r}
+# Trying 1SE method
+set.seed(2025)
+enet.fit_1se <- train(sale_price ~ .,
+                  data = train_df,
+                  method = "glmnet",
+                  tuneGrid = expand.grid(alpha = seq(0, 1, length = 20), 
+                                         lambda = exp(seq(10, 0, length = 100))),
+                  trControl = ctrl2)
+enet.fit_1se$bestTune
+
+# MSE
+enet.pred_1se = predict(enet.fit_1se, newdata = test_df)
+mean((enet.pred_1se - pull(test_df, "sale_price"))^2)
+```
+Using 1SE, the resulting tuning parameters are alpha = 0 and lambda = 6554.314. The resulting test error is 426591709. Since the test errors are similar for both 1SE and CV methods, we can go ahead and use the 1SE method as well. **CHECK THIS**
 
