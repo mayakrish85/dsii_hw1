@@ -33,6 +33,16 @@ test_df = read_csv("housing_test.csv") %>% janitor::clean_names()
 
 Response variable: `sale_price`
 
+``` r
+x <- model.matrix(sale_price ~ ., train_df)[,-1] # convert into a binary indicator variable
+# vector of response
+y <- train_df[, "sale_price"]
+
+corrplot(cor(x), method = "circle", type = "full", tl.cex = 0.5)
+```
+
+![](ds2_hw1_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
+
 ## Part a)
 
 **Fit a lasso model on the training data. Report the selected tuning
@@ -59,7 +69,7 @@ lasso.fit =
 plot(lasso.fit, xTrans = log)
 ```
 
-![](ds2_hw1_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
+![](ds2_hw1_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
 ``` r
 lasso.fit$bestTune
@@ -167,7 +177,9 @@ mse = mean((predictions - pull(test_df, "sale_price"))^2); mse
     ## [1] 420726548
 
 Using the 1SE rule, the optimal tuning parameter is 403.4288. The MSE is
-420726548. There are 36 (non-zero) predictors in this model.
+420726548. There are 36 (non-zero) predictors in this model. Since this
+model has a lower MSE than the first model, we can conclude that this
+1SE model may be better for prediction purposes than the former.
 
 ## Part b)
 
@@ -200,7 +212,7 @@ myPar <- list(superpose.symbol = list(col = myCol),
 plot(enet.fit, par.settings = myPar, xTrans = log)
 ```
 
-![](ds2_hw1_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+![](ds2_hw1_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 ``` r
 # coefficients in the final model
@@ -314,7 +326,7 @@ mean((pred.pls - pull(test_df, "sale_price"))^2)
 ggplot(pls_fit, highlight = TRUE)
 ```
 
-![](ds2_hw1_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+![](ds2_hw1_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 The final model used 12 components.
 
@@ -375,7 +387,7 @@ summary(resamp)
 bwplot(resamp, metric = "RMSE")
 ```
 
-![](ds2_hw1_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+![](ds2_hw1_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
 Elastic net (minimizing CV error) performs the best out of the 5 models
 with regards to all measures of test error, as seen in the graph above
@@ -415,14 +427,24 @@ cv.lasso$lambda.1se
 plot(cv.lasso)
 ```
 
-![](ds2_hw1_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
+![](ds2_hw1_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
 
 ``` r
 plot_glmnet(cv.lasso$glmnet.fit)
 ```
 
-![](ds2_hw1_files/figure-gfm/unnamed-chunk-8-2.png)<!-- -->
+![](ds2_hw1_files/figure-gfm/unnamed-chunk-9-2.png)<!-- -->
 
 The tuning parameter using `glmnet` is 58.00946, and 403.4288 when the
 1SE method is used. The lambda value for the 1SE method is the same for
-both tests, but slightly different for the minimum method.
+both tests, but slightly different for the minimum method. Potential
+reasons for this can include:
+
+1)  `glmnet` automatically standardizes the predictors, whereas `caret`
+    does not. Since I did not include a preProcess argument in my
+    `train()` function, the predictors were not standardized in that
+    model.
+
+2)  `glmnet` automatically does a single round of 10-fold CV, whereas in
+    the `train()` function in `caret`, I manually required a 10-fold CV
+    repeated 5 times.

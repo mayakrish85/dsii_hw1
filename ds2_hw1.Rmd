@@ -26,6 +26,15 @@ test_df = read_csv("housing_test.csv") %>% janitor::clean_names()
 ```
 Response variable: `sale_price`
 
+```{r}
+x <- model.matrix(sale_price ~ ., train_df)[,-1] # convert into a binary indicator variable
+# vector of response
+y <- train_df[, "sale_price"]
+
+corrplot(cor(x), method = "circle", type = "full", tl.cex = 0.5)
+```
+
+
 ## Part a)
 
 **Fit a lasso model on the training data. Report the selected tuning parameter and the test error. When the 1SE rule is applied, how many predictors are included in the model?**
@@ -92,7 +101,7 @@ predictions = predict(lasso.fit_1se, newdata = test_df)
 mse = mean((predictions - pull(test_df, "sale_price"))^2); mse
 ```
 
-Using the 1SE rule, the optimal tuning parameter is 403.4288. The MSE is 420726548. There are 36 (non-zero) predictors in this model.
+Using the 1SE rule, the optimal tuning parameter is 403.4288. The MSE is 420726548. There are 36 (non-zero) predictors in this model. Since this model has a lower MSE than the first model, we can conclude that this 1SE model may be better for prediction purposes than the former.
 
 ## Part b)
 
@@ -205,4 +214,8 @@ plot(cv.lasso)
 plot_glmnet(cv.lasso$glmnet.fit)
 ```
 
-The tuning parameter using `glmnet` is 58.00946, and 403.4288 when the 1SE method is used. The lambda value for the 1SE method is the same for both tests, but slightly different for the minimum method.
+The tuning parameter using `glmnet` is 58.00946, and 403.4288 when the 1SE method is used. The lambda value for the 1SE method is the same for both tests, but slightly different for the minimum method. Potential reasons for this can include:
+
+1) `glmnet` automatically standardizes the predictors, whereas `caret` does not. Since I did not include a preProcess argument in my `train()` function, the predictors were not standardized in that model.
+
+2) `glmnet` automatically does a single round of 10-fold CV, whereas in the `train()` function in `caret`, I manually required a 10-fold CV repeated 5 times.
