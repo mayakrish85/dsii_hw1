@@ -2,7 +2,14 @@
 title: "Data Science II HW 1"
 author: "Maya Krishnamoorthy"
 date: "2025-02-22"
-output: github_document
+output: 
+  pdf_document:
+    toc: true
+    number_sections: true
+fontsize: 11pt
+header-includes:
+  - \usepackage{booktabs}  # For better tables
+  - \usepackage{graphicx}
 ---
 
 ```{r setup, include=FALSE}
